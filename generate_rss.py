@@ -62,53 +62,94 @@ def generate_daily_content(topic, level):
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel('gemini-pro')
     
+    # Seviyeye göre kelime sayısı
+    word_counts = {
+        'A1': '80-100',
+        'A2': '100-120',
+        'B1': '120-150',
+        'B2': '150-180',
+        'C1': '180-220',
+        'C2': '200-250'
+    }
+    
+    word_count = word_counts.get(level, '150-200')
+    
     prompt = f"""Create a daily English learning content for level {level} about "{topic}".
 
-REQUIREMENTS:
-1. Write a short paragraph (100-150 words) in English suitable for {level} level learners
-2. The content should be interesting, informative, and natural
-3. Include 3-5 useful vocabulary words, phrases, or expressions
-4. Provide Turkish translation of the entire paragraph
-5. List key vocabulary/phrases with explanations
+IMPORTANT REQUIREMENTS:
+1. Write a COMPLETE paragraph ({word_count} words) in English suitable for {level} level learners
+2. The paragraph MUST be substantial, interesting, informative, and natural
+3. DO NOT write just 2-3 sentences - write a FULL paragraph with multiple sentences
+4. Include 5-7 useful vocabulary words, phrases, or expressions from the text
+5. Provide complete Turkish translation of the entire paragraph
+6. List key vocabulary/phrases with Turkish meanings and example sentences
 
-FORMAT YOUR RESPONSE EXACTLY AS JSON:
+LEVEL GUIDELINES:
+- A1/A2: Simple vocabulary, present tense, basic sentence structures
+- B1/B2: More complex sentences, various tenses, common idioms
+- C1/C2: Advanced vocabulary, nuanced expressions, sophisticated structures
+
+FORMAT YOUR RESPONSE EXACTLY AS JSON (no extra text):
 {{
     "level": "{level}",
     "topic": "{topic}",
-    "english_text": "the English paragraph here",
-    "turkish_translation": "Türkçe çeviri buraya",
+    "title": "Engaging title (5-8 words)",
+    "english_text": "A FULL paragraph here with {word_count} words. Multiple sentences covering different aspects of the topic. Include interesting details and examples.",
+    "turkish_translation": "Tam Türkçe çeviri - bütün paragrafın çevirisi",
     "vocabulary": [
-        {{"term": "word or phrase", "meaning": "Turkish meaning", "example": "example sentence"}},
-        {{"term": "word or phrase", "meaning": "Turkish meaning", "example": "example sentence"}}
-    ],
-    "title": "Catchy title for this content"
+        {{"term": "word or phrase from text", "meaning": "Türkçe anlamı", "example": "Example sentence in English"}},
+        {{"term": "another word", "meaning": "Türkçe anlamı", "example": "Example sentence"}},
+        {{"term": "phrase", "meaning": "Türkçe anlamı", "example": "Example sentence"}},
+        {{"term": "expression", "meaning": "Türkçe anlamı", "example": "Example sentence"}},
+        {{"term": "vocabulary", "meaning": "Türkçe anlamı", "example": "Example sentence"}}
+    ]
 }}
 
-Make it educational, engaging, and appropriate for {level} level."""
+WRITE A COMPLETE, SUBSTANTIAL PARAGRAPH - NOT JUST 2-3 SHORT SENTENCES!"""
 
     try:
         response = model.generate_content(prompt)
         text = response.text.strip()
         
         # JSON'ı çıkar (markdown kod bloğu içinde olabilir)
-        json_match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+        json_match = re.search(r'```(?:json)?\s*(.*?)\s*```', text, re.DOTALL)
         if json_match:
             text = json_match.group(1)
         
+        # Bazen sadece { ile başlıyor
+        if not text.startswith('{'):
+            json_start = text.find('{')
+            if json_start != -1:
+                text = text[json_start:]
+        
         content = json.loads(text)
+        
+        # İçeriğin yeterli uzunlukta olduğunu kontrol et
+        word_count_check = len(content.get('english_text', '').split())
+        if word_count_check < 50:
+            print(f"Warning: Content too short ({word_count_check} words), regenerating...")
+            raise ValueError("Content too short")
+        
+        print(f"✓ Generated content: {word_count_check} words")
         return content
     
     except Exception as e:
         print(f"Error generating content: {e}")
-        # Fallback içerik
+        print(f"Response text: {text[:500] if 'text' in locals() else 'N/A'}")
+        
+        # Daha iyi fallback içerik
         return {
             "level": level,
             "topic": topic,
-            "title": f"Daily English Learning: {topic}",
-            "english_text": f"Today we explore {topic}. This is an interesting subject that helps us improve our English skills.",
-            "turkish_translation": f"Bugün {topic} konusunu keşfediyoruz. Bu, İngilizce becerilerimizi geliştirmemize yardımcı olan ilginç bir konu.",
+            "title": f"Exploring {topic} - A {level} Guide",
+            "english_text": f"Today we delve into the fascinating world of {topic}. This subject offers numerous opportunities to expand our English vocabulary and understanding. Learning about {topic} helps us communicate more effectively in various real-world situations. We encounter related vocabulary and expressions in daily conversations, news articles, and professional settings. By studying this topic, we develop both our language skills and cultural awareness. The practical applications of this knowledge extend far beyond the classroom, enriching our ability to engage with English speakers globally.",
+            "turkish_translation": f"Bugün {topic} konusunun büyüleyici dünyasına dalıyoruz. Bu konu, İngilizce kelime dağarcığımızı ve anlayışımızı genişletmek için çok sayıda fırsat sunuyor. {topic} hakkında öğrenmek, çeşitli gerçek hayat durumlarında daha etkili iletişim kurmamıza yardımcı oluyor. İlgili kelime ve ifadelere günlük konuşmalarda, haber makalelerinde ve profesyonel ortamlarda rastlıyoruz. Bu konuyu çalışarak hem dil becerilerimizi hem de kültürel farkındalığımızı geliştiriyoruz. Bu bilginin pratik uygulamaları sınıfın çok ötesine uzanıyor ve küresel olarak İngilizce konuşanlarla etkileşim kurma yeteneğimizi zenginleştiriyor.",
             "vocabulary": [
-                {"term": "explore", "meaning": "keşfetmek, araştırmak", "example": "We explore new ideas every day."}
+                {"term": "delve into", "meaning": "derinlemesine incelemek, dalmak", "example": "Let's delve into this topic more deeply."},
+                {"term": "fascinating", "meaning": "büyüleyici, çok ilginç", "example": "The documentary was absolutely fascinating."},
+                {"term": "expand vocabulary", "meaning": "kelime dağarcığını genişletmek", "example": "Reading helps expand your vocabulary significantly."},
+                {"term": "effectively", "meaning": "etkili bir şekilde", "example": "She communicates effectively with her team."},
+                {"term": "cultural awareness", "meaning": "kültürel farkındalık", "example": "Travel increases cultural awareness and understanding."}
             ]
         }
 
@@ -121,22 +162,23 @@ def create_rss_item(content, image_url):
     title = ET.SubElement(item, 'title')
     title.text = f"[{content['level']}] {content['title']}"
     
-    # Link (unique per day)
+    # Link (unique per run)
     link = ET.SubElement(item, 'link')
-    date_str = datetime.now().strftime('%Y-%m-%d')
-    link.text = f"{FEED_LINK}#{date_str}"
+    timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M')
+    link.text = f"{FEED_LINK}#{timestamp}"
     
-    # Description (HTML content)
+    # Description (HTML content with proper image)
     description = ET.SubElement(item, 'description')
     
-    html_content = f"""
+    # Escape HTML properly for RSS
+    html_content = f"""<![CDATA[
     <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
             <h2 style="margin: 0; font-size: 24px;">📚 Level: {content['level']}</h2>
             <p style="margin: 5px 0 0 0; opacity: 0.9;">Topic: {content['topic']}</p>
         </div>
         
-        <img src="{image_url}" alt="{content['topic']}" style="width: 100%; height: auto; display: block;" />
+        <img src="{image_url}" alt="{content['topic']}" style="width: 100%; max-width: 700px; height: auto; display: block; margin: 0;" />
         
         <div style="padding: 20px; background: #f8f9fa; border-radius: 0 0 10px 10px;">
             <h3 style="color: #333; margin-top: 0;">📖 English Text</h3>
@@ -149,7 +191,7 @@ def create_rss_item(content, image_url):
                 {content['turkish_translation']}
             </p>
             
-            <h3 style="color: #333; margin-top: 30px;">💡 Key Vocabulary & Phrases</h3>
+            <h3 style="color: #333; margin-top: 30px;">💡 Key Vocabulary &amp; Phrases</h3>
             <div style="background: white; padding: 15px; border-radius: 8px;">
     """
     
@@ -166,7 +208,7 @@ def create_rss_item(content, image_url):
             </div>
         </div>
     </div>
-    """
+    ]]>"""
     
     description.text = html_content
     
@@ -174,15 +216,25 @@ def create_rss_item(content, image_url):
     pub_date = ET.SubElement(item, 'pubDate')
     pub_date.text = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT')
     
-    # GUID
+    # GUID (unique per run)
     guid = ET.SubElement(item, 'guid')
     guid.set('isPermaLink', 'false')
-    guid.text = f"daily-english-{datetime.now().strftime('%Y%m%d')}"
+    # Include timestamp to ensure uniqueness even on same day
+    timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+    guid.text = f"daily-english-{timestamp}"
     
-    # Enclosure (image)
+    # Enclosure (image) - kritik: RSS okuyucuların görseli göstermesi için
     enclosure = ET.SubElement(item, 'enclosure')
     enclosure.set('url', image_url)
     enclosure.set('type', 'image/jpeg')
+    enclosure.set('length', '0')  # Bazı RSS okuyucular için gerekli
+    
+    # Media content (alternatif görsel yöntemi)
+    # Bazı RSS okuyucular için
+    media_content = ET.SubElement(item, '{http://search.yahoo.com/mrss/}content')
+    media_content.set('url', image_url)
+    media_content.set('type', 'image/jpeg')
+    media_content.set('medium', 'image')
     
     return item
 
@@ -198,6 +250,7 @@ def create_or_update_rss(new_item):
         rss = ET.Element('rss')
         rss.set('version', '2.0')
         rss.set('xmlns:atom', 'http://www.w3.org/2005/Atom')
+        rss.set('xmlns:media', 'http://search.yahoo.com/mrss/')  # Media RSS namespace
         
         channel = ET.SubElement(rss, 'channel')
         
