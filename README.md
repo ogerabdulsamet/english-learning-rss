@@ -163,9 +163,43 @@ FEED_DESCRIPTION = 'Günlük İngilizce öğrenme içerikleri'  # Burası deği�
 1. İlk çalıştırmadan sonra 5-10 dakika bekle (GitHub Pages yayınlama süresi)
 2. Feed URL'ini tarayıcıda aç, XML görünüyorsa çalışıyor demektir
 
-### Manuel çalıştırma
-1. **Actions** → **Daily English RSS Generator**
-2. **Run workflow** → **Run workflow** butonuna tıkla
+### Manuel çalıştırma yeni makale getirmiyor
+**Sorun**: Aynı gün içinde birden fazla çalıştırmada yeni makale gözükmüyor.
+**Çözüm**: Bu artık düzeltildi! Her çalıştırmada benzersiz timestamp kullanılıyor.
+- Eski kod: `daily-english-20240306` (günde 1 tane)
+- Yeni kod: `daily-english-20240306-143022` (her çalıştırmada farklı)
+
+### Görseller görünmüyor
+**Sorun**: Feedly'de veya RSS okuyucuda görseller yüklenmiyor.
+**Çözüm**: Güncellenmiş kodda 3 farklı yöntemle görsel eklendi:
+1. HTML `<img>` tag ile (RSS description içinde)
+2. `<enclosure>` tag ile (standart RSS)
+3. `<media:content>` tag ile (Media RSS)
+
+Unsplash source API bazen yavaş yüklenebilir. Alternatif olarak Pexels veya başka bir görsel servisi kullanabilirsin.
+
+### İçerik çok kısa
+**Sorun**: Paragraf sadece 2-3 cümle.
+**Çözüm**: Yeni kod seviyeye göre minimum kelime sayısı kontrol ediyor:
+- A1/A2: 80-120 kelime
+- B1/B2: 120-180 kelime  
+- C1/C2: 180-250 kelime
+
+Eğer AI çok kısa içerik üretirse, otomatik olarak daha uzun bir fallback içerik kullanılır.
+
+### Görsel alternatifi (daha hızlı yükleme için)
+Eğer Unsplash yavaş geliyorsa, `generate_rss.py`'de bu satırı değiştirebilirsin:
+
+```python
+def get_unsplash_image_url(topic):
+    # Pexels alternatifi (daha hızlı)
+    query = topic.replace(' ', '-').lower()
+    return f"https://images.pexels.com/photos/1234567/pexels-photo-1234567.jpeg"
+    
+    # Veya Lorem Picsum (rastgele ama çok hızlı)
+    seed = hashlib.md5(f"{topic}-{datetime.now().date()}".encode()).hexdigest()[:8]
+    return f"https://picsum.photos/seed/{seed}/800/600"
+```
 
 ## 💰 Maliyet
 
